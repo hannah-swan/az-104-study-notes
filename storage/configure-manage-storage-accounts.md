@@ -94,7 +94,16 @@ Below are links to the relevant modules for each listed learning objective. Modu
      - Not available in all regions.
      - Ensures data can still be accessed if a zone becomes unavailable.
      - Changing to ZRS requires physical movement of data from single storage stamp to multiple stamps.
-  3. Geo-Redundant Storage (GRS):
+  3. Geo-Redundant Storage (GRS): replicates data to a secondary region.
+     - Higher levelof durability, even during a regional outage (at least 16 9's).
+     - Data replicated using LRS in both regions.
+     - Two flavours:
+       - GRS: data available as read-only from secondary region only if Microsoft initiates a failover from the primary region to the secondary.
+       - RA-GRS: (read-access GRS) option to read from the secondary region regardless of whether a failover has been initiated.
+  4. Geo-Zone Redundant Storage (GZRS): combines GRS and ZRS, data is replicated into 3 availability zones in primary and secondary region.
+     - Continue to read and write data during a zone-wide outage; durability during region-wide outage.
+     - 16 9's durability over a year.
+     - RA-GZRS also available.
 
 ### Configure Object Replication
 
