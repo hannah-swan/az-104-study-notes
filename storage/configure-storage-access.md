@@ -42,6 +42,13 @@ Below are links to the relevant modules for each listed learning objective. Modu
     2. Intermediary Domain Mapping: applied to domain already in use in Azure.
        - Prevent downtime by using the `asverify` keyword to permit Azure to recognize custom domain without modifying DNS record for domain.
        - Create an intermediate CNAME record for `asverify.blobs.contoso.com` to `asverify.contosoblobs.blob.windows.net`, register your custom domain in Azure, and then create the `CNAME` record for the subdomain.
+- Security:
+  - Azure AD and Azure RBAC are supported for resource management and data operations.
+    - Assign RBAC roles at the storage account scope to security principals and authorize resource management with Azure AD.
+    - Azure AD is supported for authorizing data operations on blobs and queues.
+    - Authentication is enforced for every request to resources in Blob/Files/Queue/Cosmos DB, except for read requests on public containers.
+  - Secure data in transit with Client-Side Encryption, HTTPS, or SMB 3.0.
+  - Azure Disk Encryption is used to encypt OS and data disks
 
 ### Configure Azure Storage Firewalls and Virtual Networks
 
@@ -52,7 +59,45 @@ Below are links to the relevant modules for each listed learning objective. Modu
 
 ### Create and Use Shared Access Signature (SAS) Tokens
 
+- **Shared Access Signature (SAS):** URI which grants restricted access rights to storage resources.
+  - **Account-level SAS:** delegates access to resources in one or more storage services.
+  - **Service-level SAS:** delegates access to resources in only one storage service.
+- Features:
+  - SAS tokens allow for sharing of account resources without compromising the storage account key.
+  - Granular control over access type, with the ability to specify the start and end time of the access.
+- URI/SAS parameters:
+
+  | Parameter       | Example                                                                      | Description                                                                                                                                                                                                                                                                                                                                |
+  | --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+  | Resource URI    | https://myaccount.blob.core.windows.net/?restype=service&amp;comp=properties | Azure Storage endpoint. In the example, indicates the SAS applies to service-level operations. A `GET` request will view properties, while a `SET` request will update them.                                                                                                                                                               |
+  | Storage Version | sv=2015-04-05                                                                | Specifies which version of the storage API to use                                                                                                                                                                                                                                                                                          |
+  | Storage Service | ss=bf                                                                        | Specifies which services the SAS provides access for. In the example, Blob and Files are specified.                                                                                                                                                                                                                                        |
+  | Start Time      | st=2015-04-29T22%3A18%3A26Z                                                  | (Optional) Start time for SAS in UTC.                                                                                                                                                                                                                                                                                                      |
+  | Expiry Time     | se=st=2015-04-30T22%3A18%3A26Z                                               | Expiry time for the SAS in UTC.                                                                                                                                                                                                                                                                                                            |
+  | Resource        | sr=b                                                                         | Specifies which resources are accessible via the SAS. In the example, blob storage is specified.                                                                                                                                                                                                                                           |
+  | Permissions     | sp=rw                                                                        | Specifies which permissions are granted by the SAS. In the example, read and write permissions are assigned.                                                                                                                                                                                                                               |
+  | IP Range        | sip=168.1.5.60-168.1.5.70                                                    | (Optional) specifies the range of IP addresses from which the SAS is accepted.                                                                                                                                                                                                                                                             |
+  | Protocol        | spr=https                                                                    | (Optional) specifies which protocols to accept the SAS over. The example specified HTTPS only.                                                                                                                                                                                                                                             |
+  | Signature       | sig=\<signature>                                                             | Specifies that access to the resource is authenticated by using an HMAC signature. The signature is computed over a string-to-sign with a key by using the SHA256 algorithm, and encoded by using Base64 encoding. Can choose to sign with a storage account key or a user delegation key (user delegation = authenticated with Azure AD). |
+
+- SAS tokens come with potential risks:
+  - If a SAS token is compromised, anyone can use it.
+  - SAS tokens are not traced or stored once they are issued, if a token is compromised a revokation plan must be in place that secures resources (for example, by revoking the signing key)
+  - If used by production applications, expiry risks breaking services.
+- Recommendations:
+  - Always use HTTPS to create and distribute SAS tokens.
+  - Use stored access policies wherever possible. This gives the option of revoking access without rotating account keys.
+  - Use the shortest reasonable expiry time.
+  - Require clients to automatically renew their SAS tokens, leaving time for retries.
+  - Plan the SAS start time to account for potential clock skew. Can prevent issues by setting no start time, or setting a time 15 minutes in the past.
+  - Always define the minimum permissions needed.
+  - Understand account billing for usage, including SAS. Users can incur costs with download and upload via SAS; mitigate with minimum permissions and short-lived access.
+  - Validate data written using a SAS.
+  - Monitor apps with Azure Storage Analytics.
+
 ### Configure Stored Access Policies
+
+- **Stored Access Policy:**
 
 ### Manage Access Keys
 

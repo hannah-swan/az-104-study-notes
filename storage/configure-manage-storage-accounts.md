@@ -41,6 +41,13 @@ Below are links to the relevant modules for each listed learning objective. Modu
   - All data in Azure Storage is encrypted.
   - Designed to be massively scalable.
   - Data is accessible anywhere over HTTP(S). SDKs are available for .NET, Java, Node.js, Python, PHP, Ruby, Go, etc.
+- Pricing factors:
+  - Performance tier: storage tier determines the cost per GB to store data, decreases with cooler tiers.
+  - Data access cost: costs to access data increase with cooler tiers; Cool and Archive tiers are billed per-GB for access.
+  - Transaction costs: per-transaction charge for all tiers. Cost increases for cooler tiers.
+  - Geo-replication: per-GB charge for data transfer in GRS, RA-GRS, GZRS, RA-GZRS configurations.
+  - Outbound data transfer cost: data transferred out of a region is billed for bandwidth usage on a per-GB basis.
+  - Changes to storage tier: when moving data from Cool to Hot, a charge equivalent to reading all data in the account is incurred. When moving from Hot to Cool, there is a charge equivalent to writing all data into the Cool tier (GPv2 only).
 
 ### Create and Configure Storage Accounts
 
@@ -107,6 +114,74 @@ Below are links to the relevant modules for each listed learning objective. Modu
 
 ### Configure Object Replication
 
+- Replication copies blobs asynchronously (including metadata and versions) from one container to another.
+- Supports only block blobs in General Purpose v2 or Premium Blob storage accounts.
+- Object replication requires versioning to be enabled on source and destination accounts.
+- Blob snapshots are not replicated from source account to destination account.
+- Blobs in Hot and Cool tiers are supported.
+- Configuration: create replication policy specifying source and destination storage accounts.
+  - Replication policy contains one or more rules specifying source and destination container and blobs to replicate.
+- Common use cases:
+  - Reduce latency on read requests by replicating data to a storage account closer to users' physical locations.
+  - Improve efficiency of compute workloads by allowing them to process the same sets of data in different regions.
+  - Optimize for data distribution; do processing in one location and replicate results to multiple regions.
+  - Optimize cost benefits by using lifecycle management to archive blobs after replication.
+
 ### Configure Storage Account Encryption
 
+- All data written to storage accounts is automatically encrypted before it's persisted to Storage.
+- Data is automatically decrypted before retrieval.
+- Storage encryption, encryption at rest, decryption, and key management are all transparent to users.
+- Data is encrypted through 256-bit AES; encryption is enabled for all storage accounts and cannot be disabled.
+- Can choose the encryption type: Customer-managed or Microsoft-managed keys.
+  - Customer-managed keys: provide more control and flexibility than the default Microsoft-managed keys.
+    - Can use a Key Vault to manage encryption keys and optionally generate the keys using the Key Vault APIs.
+    - Create, disable, audit, rotate, and define access controls for keys.
+    - Using customer-managed keys with Azure Storage:
+      - The key vault and storage account must be in the same region (although they can be in different subscriptions).
+      - Specify the key with a URI, or select from an existing key vault.
+
 ### Manage Data by Using Azure Storage Explorer and AzCopy
+
+- Several upload tools available for Azure Storage:
+  1. **Azure Storage Explorer:** standalone application for working with Azure Storage on Windows, MacOS, and Linux. Allows management of all storage content across multiple accounts and subscriptions.
+     - Requires management and data layer permissions for full access.
+     - Can be used to manage local storage with Azure Storage Emulator.
+     - To attach to an external storage account, need account name and account key.
+  1. **AzCopy:** CLI for Windows and Linux that can copy data to and from Blob storage, and across containers and storage accounts. Built on Azure DML.
+     - As of version 10, has a redesigned CLI and architecture, making it high performance and reliable.
+     - Uses:
+       - Copy data between storage accounts, or between storage accounts and on-premises storage.
+       - List or remove files or blobs in a given path.
+       - Ideal for incremental copy scenarios.
+     - Every AzCopy instance creates a job order with related log files to make reviewing, restarting, resuming easy. Automatically retries a transfer upon failure.
+     - With Blob storage, can transfer an entire storage account to another using a `PUT`. No need to transfer to the client in this process.
+     - Support for DataLake Gen2 APIs
+     - Built into Azure Storage Explorer (Storage Explorer uses AzCopy for all transfer operations) and supported on Windows, Linux, and MacOS.
+     - Basic CLI syntax: `azcopy <job> [args]`
+     - Authentication options:
+       1. Azure AD sign-in: applicable for Blob and Data Lake storage, when the identity being used has at least the Storage Blob Data Contributor Role. Allows user to circumvent the SAS in each command.
+       2. SAS token: the SAS must be provided as an argument for every command (Blob and Files).
+  1. **Azure Storage Data Movement Library (DML):**.NET library for moving between storage services.
+  1. **Azure Data Factory:** Copy data to and from Blob storage.
+  1. **blobfuse:** virtual file system driver for Blob storage. Allows access to existing block blob data through a Linux filesystem.
+  1. **Azure Data Box Disk:** service for transferring on-prem data to blob storage when uploading over the wire is unrealistic. SSDs can be requested from Microsoft, data can be copied onto them and then sent back to Microsoft datacenter for upload.
+  1. **Azure Import/Export:** service to export large amounts of data from your storage account to hard drives that are then shipped to you.
+     - Can be used in reverse to get data from the cloud to on-premises.
+     - Can create an import or export job in the portal or via the Import/Export REST API.
+     - Useful when uploading/downloading over the network is too slow or prohibitively expensive.
+     - To create an import job:
+       1. Create the storage account in Azure.
+       2. Prep disks and machine(s) housing data for the data copy.
+       3. Install the `WAImportExport` tool on the disks.
+       4. Run the tool (encrypts disks, generates journal files, copies data)
+       5. Create the Azure Import job.
+       6. Ship the disks (update job to include tracking number for shipment).
+       7. When staff receive disks at the datacenter, they will copy the data over and ship the disks back.
+     - To create an export job:
+       1. Identify data for export and determine disk requirements.
+       2. Create the export job in the portal.
+       3. Ship the disks to the Azure datacenter (update the job to include tracking number for shipment).
+       4. When staff receive the disks, they will copy the data, encrypt it, and send the disks back.
+       5. Decrypt the data using the the BitLocker keys stored in the storage account.
+     - **WAImportExport Tool:** tool used by the Azure Import/Export service to prepare devices for importing data, and repair any corrupted data after a transfer. Handles the data copy, data repair, volume encryption, and journal file creation. Must be used with 64-bit Windows OS and SATA II or SATA III HDDs/SSDs.
