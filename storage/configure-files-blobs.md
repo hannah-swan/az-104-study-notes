@@ -27,32 +27,32 @@ Below are links to the relevant modules for each listed learning objective. Modu
 ### General
 
 - Common use cases for Blob storage:
-  - Serving documents or images directly to a browser.
-  - Storing files for distributed access.
-  - Streaming audio or video.
-  - Storing backups, data for disaster recovery, archives.
+  - Serving documents or images directly to a browser,
+  - Storing files for distributed access,
+  - Streaming audio or video,
+  - Storing backups, data for disaster recovery, archives,
   - Storing data for later analysis by other services.
 - Blob types:
   - **Block Blob:** blocks of data assembled to make a blob. Most commonly used blob type, ideal for text and binary data.
-  - **Append Blob:** bocks of data optimized for append operations. Useful for loggin scenarios.
+  - **Append Blob:** bocks of data optimized for append operations. Useful for logging scenarios.
   - **Page Blob:** can be up to 8TB in size, optimized for frequent read/write operations. Used by Azure VMs for operating system and data disks.
   - The default type for new blobs is block blob. Blob type can not be changed after creation.
-
-### Create and Configure a File Share in Azure Storage
-
 - Azure Files offers shared storage using SMB (Server Message Block) protocol.
   - VMs and other cloud services can share data by mounting file shares (also allows on-prem access).
   - File shares are fully managed and can be mounted by Windows, Linux, and MacOS machines.
-- Use cases:
-  - Replace/supplement traditional on-prem file servers and NAS devices.
-  - Cloud lift and shift.
-  - Data accessibility: access data from any OS, anywhere in the world.
-  - Store shared application settings (ex. config, tools, utilities) in a central location for consumption by machines, or use as a shared location to write logs/diagnostic data.
+- Use cases for File storage:
+  - Replace/supplement traditional on-prem file servers and NAS devices,
+  - Cloud lift and shift,
+  - Data accessibility: access data from any OS, anywhere in the world,
+  - Store shared application settings (ex. config, tools, utilities) in a central location for consumption by machines, or use as a shared location to write logs/diagnostic data,
   - Replicate Azure File Shares to Windows Servers with Azure File Sync (servers can be on-prem or in cloud) for increased performance and distributed caching.
-- Comparison with Blob Storage:
+- Blob Storage vs. Azure Files:
   1. Files provides SMB and NFS protocols, REST API, and client libraries. Blobs provide a REST API and client libraries to allow unstructured data access on a massive scale.
   2. Files stored in Azure Files are a true directory namespace, and data is accessed through file shares. Blobs in Blob Storage are a flat namespace and accessed through a contianer. Page blobs in Disks are 512-byte pages and exclusive to a single VM.
   3. Azure Files is ideal for lift & shift, and good for storage of shared tools. Blob storage is ideal for streaming and random access. Page blobs in Disks are ideal for random read & write operations & storing relational data for OS and data disks used by VMs.
+
+### Create and Configure a File Share in Azure Storage
+
 - Azure Files uses SMB, which communicates over TCP port 445; that port must be open and not blocked by firewall in order for communication with file share to be successful.
 - Can (and should) limit communication to secure connections only by using the "Secure transfer required" setting.
 - Connecting to Azure Files:
@@ -64,20 +64,20 @@ Below are links to the relevant modules for each listed learning objective. Modu
   - Any protocol (SMB, NFS, FTPS) can be used to access the local copy of the share.
   - Azure Backup will backup synced files.
 - Azure File Sync has a Cloud Tiering (optional) feature:
-  - Frequently accessed files are cached locally while all other are tiered to Azure based on policy settings.
+  - Frequently accessed files are cached locally while all others are tiered to Azure based on policy settings.
     - When a file is tiered, Azure replaces the file locally with a pointer (reparse point; represents a URL to the file in Azure Files).
     - When the tiered file is opened, Azure File Sync recalls the data from Azure Files
     - Cloud tiered files are displayed with a greyed icon with the offline "O" to show that they are only in Azure Files.
     - Useful for archiving files.
 - File Sync components:
   - Storage Sync Service: top level resource for Azure File Sync (ie. a peer of the storage account containing Azure Files).
-    - Sync Service forms relationship with multiple storage accounts using "sync groups".
-    - There can be more than one sync service deployed per subscription.
+    - Sync Service forms relationships with multiple storage accounts using "sync groups".
+    - There can be more than one Sync Service deployed per subscription.
   - Sync Group: defines the sync topology for a set of files. Endpoints within a sync group are kept in sync with each other.
   - Registered Server: represents a trust relationship between the on-prem server acting as the cache and the File Sync Service.
   - Azure File Sync Agent: downloaded agent that enables a Windows Server machine to be synced with an Azure Files share.
     - Composed of `FileSyncSvc.exe` and `StorageSync.sys`. Fomer is the background service responsible for monitoring changes and initiating syncs. Latter is the file system filter responsible for managing cloud tiering (if enabled).
-    - Associated PowerShell cmdlets to interact with the Sync resource provider
+    - Associated PowerShell cmdlets to interact with the Sync resource provider.
   - Server Endpoint: specific location (folder or volume) on the registered server. Can have multiple endpoints on the same volume as long as namespaces are unique.
   - Cloud Endpoint: Azure Files share that's part of a sync group.
     - Each Files share can be a member of a single cloud endpoint and sync group only.
@@ -131,21 +131,67 @@ Below are links to the relevant modules for each listed learning objective. Modu
   - To restore a share after accidental deletion or disaster, only the most recent snapshot needs to be retained.
   - Snapshots can be retrieved for individual files if needed.
   - To delete a share that has snapshots, the snapshots must be deleted first.
+- Soft delete: available for SMB shares, and not NFS.
+
+  - In portal: storage account > File shares > Soft Delete (Enable, and then enable for all file shares and select retention.).
+  - Azure CLI:
+    ```bash
+    az storage account file-service-properties update \
+        --resource-group <resource group> \
+        --account-name <account name> \
+        --enable-delete-retention true \
+        --delete-retention-days <int>
+    ```
+    Can verify soft delete enabled with:
+    ```bash
+    az storage account file-service-properties show \
+        --resource-group <resource group> \
+        --account-name <account name>
+    ```
+  - To restore deleted files via CLI:
+
+    ```bash
+    # Get version you want to restore by listing deleted file shares
+    az storage share-rm list \
+        --resource-group <resource group>
+        --account-name <account name>
+        --include-deleted
+
+    # Restore
+    az storage share-rm restore \
+        -n <share name> \
+        --deleted-version $share_version \
+        --resource-group <resource group>
+        --storage-account <storage account name>
+    ```
 
 ### Configure Blob Lifecycle Management
 
 - Lifecycle management is configured as a rule-based policy for GPv2 and Blob Storage accounts.
-- Policies transition data between tiers and sets expiration times for data:
+- Each policy consists of a condition to evaluate, and an action to take if the condition is met.
+- The following are available as conditions in lifecycle management policies:
+  - Number of days since blob was created.
+  - Number of days since the blob was last modified.
+  - Number of days since the blob was last accessed (enable last access time tracking).
+- Actions allow policies to transition data between tiers, and set expiration times for data:
   - Move to cooler tiers: Hot to Cool, Hot to Archive, Cool to Archive.
   - Delete blobs when they expire.
-- Can configure rule based conditions to run daily at the storage account level, or apply them to specific containers or a subset of blobs.
-- To create rules in the portal:
-  - If-then block conditions are used to transition or expire data.
-  - "Then" clause is executed when "If" clause evaluates to true.
-  - If clause can be "last modified" or "created more than" `x` days ago.
-  - Then clause options:
-    - move to Cool storage
-    - move to Archive storage
-    - delete the blob
+- Evaluations run daily, and rules can be configured to apply to the storage account, container, or blob level.
+- Rules in the portal are created as if-then blocks.
+  - Rules are found under **Data Management > Lifecycle Management**.
+  - Can use list view to view and create rules in a GUI, or code view to view and create rules as JSON.
+- Can create new rules with the Azure CLI using `az storage account management-policy create`
+  - Pass a JSON file containing the rule as the `--policy` parameter.
 
 ### Configure Blob Versioning
+
+- Blob versioning automatically maintains previous versions of a blob when it is modified or deleted.
+  - Allows restoration of blobs when they are erroneously modified/deleted.
+- Blob versioning is part of a recommended data protection plan that involves enabling blob versioning, container soft delete, and blob soft delete.
+- When blob versioning is enabled, every write operation to the storage account results in creation of new verion. Can create additional costs if not used with Lifecycle Management.
+- In the Azure portal, blob versioning is found under **Data Management > Data Protection**
+  - When blob versioning is enabled, choose whether to keep all versions or delete old versions after a period of time.
+    - Choosing "Delete version after" option automatically creates a rule in lifecycle management.
+  - Can list blob versions by selecting the "Versions" tab for a given blob.
+- To enable blob versioning with the Azure CLI, use `az storage account blob-service-properties update` with `--enable-versioning true`.
+  - List blob versions with `az storage blob list` and the `--include v` option.
