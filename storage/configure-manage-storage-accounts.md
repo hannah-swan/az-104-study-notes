@@ -37,7 +37,7 @@ Below are links to the relevant modules for each listed learning objective. Modu
   3. Structured Data: relational data with a shared schema; often contained in a database table with rows, columns, and keys.
      - Options include Azure Table Storage (an auto-scaling NoSQL store), Azure Cosmos DB, and Azure SQL DB.
 - Key features:
-  - Storage is durable, highly available, and redundant.
+  - Storage is durable, and can be configured to be highly available and redundant.
   - All data in Azure Storage is encrypted.
   - Designed to be massively scalable.
   - Data is accessible anywhere over HTTP(S). SDKs are available for .NET, Java, Node.js, Python, PHP, Ruby, Go, etc.
@@ -72,7 +72,7 @@ Below are links to the relevant modules for each listed learning objective. Modu
   - **Azure Queue Storage:** Messaging storage for reliable messaging between application components.
     - Can store and retrieve messages ip to 64KB in size.
     - Queues can store millions of messages.
-  - **Azure Table Storage:** Now part of Azure Cosmos DB, a NoSQL store for schemaless storage of structured (relational) data.
+  - **Azure Table Storage:** Now part of Azure Cosmos DB, a NoSQL store for schemaless storage of structured data.
   - **Azure Cosmos DB:** Fully managed NoSQL database service for modern app development.
     - Fully managed service-- no database administration required.
     - Serverless and automatic scaling options available.
@@ -88,29 +88,57 @@ Below are links to the relevant modules for each listed learning objective. Modu
 
 - All data in storage accounts in replicated for protection.
 - Different flavours of replication:
-  1. Locally Redundant Storage (LRS): data is replicated 3 times within the same datacenter.
+  1. Locally Redundant Storage (LRS): default replication method; data is replicated 3 times within the same datacenter.
      - Lowest-cost replication option.
-     - Risk of losing data in datacenter-wide disaster
+     - Risk of losing data in datacenter-wide disaster, but ensures data can still be accessed if a node becomes unavailable.
      - Ideal for:
        - Data that can be easily reconstructed if lost.
        - Data the changes frequently such that storing it is not essential.
        - Data that is restricted to a single country or region by data governance.
-     - Ensures data can still be accessed if a node becomes unavailable.
   2. Zone Redundant Storage (ZRS): synchronously replicates data across three storage clusters in the same region.
      - Each storage cluster is physically separated with its own utility and network, and in a separate availability zone.
      - Not available in all regions.
      - Ensures data can still be accessed if a zone becomes unavailable.
-     - Changing to ZRS requires physical movement of data from single storage stamp to multiple stamps.
-  3. Geo-Redundant Storage (GRS): replicates data to a secondary region.
-     - Higher levelof durability, even during a regional outage (at least 16 9's).
-     - Data replicated using LRS in both regions.
+     - Changing to ZRS requires physical movement of data from single storage stamp to multiple stamps (incurs cost).
+  3. Geo-Redundant Storage (GRS): replicates data to a secondary region. In the both thte primary and secondary regions, data is replicated with LRS.
+     - Higher level of durability, even during a regional outage (at least 16 9's).
      - Two flavours:
        - GRS: data available as read-only from secondary region only if Microsoft initiates a failover from the primary region to the secondary.
        - RA-GRS: (read-access GRS) option to read from the secondary region regardless of whether a failover has been initiated.
-  4. Geo-Zone Redundant Storage (GZRS): combines GRS and ZRS, data is replicated into 3 availability zones in primary and secondary region.
+  4. Geo-Zone Redundant Storage (GZRS): combines GRS and ZRS, data is replicated into 3 availability zones (ZRS) in primary region, and with LRS secondary region.
      - Continue to read and write data during a zone-wide outage; durability during region-wide outage.
      - 16 9's durability over a year.
      - RA-GZRS also available.
+- Data is always replicated 3 times in the primary region, either via LRS or ZRS.
+- ZRS in the primary region and replication to a secondary region is recommended for high availability applications.
+- Redundancy has three levels of configuration:
+  1. How data is replicated within the primary region: LRS or ZRS
+  2. Whether data is replicated to a secondary region: LRS or GRS, ZRS or GZRS
+  3. Whether there is read access to the secondary region when geo-redundancy is used: GRS or RA-GRS, GZRS or RA-GZRS.
+- Can change replication settings in 3 ways:
+  1. Azure portal/Azure CLI: to add or remove geo-replication or read access to the secondary region.
+     - In portal, setting is under **Data Management > Redundancy**.
+     - To use the Azure CLI, use `az storage account update` with the `--sku <sku>` option set.
+  2. Perform a conversion: to add or remove zone-redundancy.
+     - There is no data loss or downtime in a conversion.
+     - Can be customer-initiated (recommended), or support-requested.
+     - Customer initiated conversions can take up to 72 hours to begin after initiation, and there is no SLA on completion time. Only available in the Azure portal, and not available in all regions; use the same settings blade as above to initiate.
+  3. Perform a manual migration: to ensure change is completed by a specific deadline, or when other methods aren't supported.
+  - More flexible than a conversion. Use when conversion has a deadline, or when it's not supported.
+  - Manual migration is required when:
+    - Moving a storage account to a different region.
+    - For block blob accounts.
+    - There is data in the archive tier, and rehydrating it is not desired.
+  - This can result in downtime.
+  - Manual migrations are performed by copying data to a new storage account with AzCopy or Azure Storage client libraries.
+- Some conversions may be a multi-step process:
+
+  |     Switching     |                     to LRS                      |                          to GRS/RA-GRS                          |                     to ZRS                      |                            to GZRS/RA-GZRS                            |
+  | :---------------: | :---------------------------------------------: | :-------------------------------------------------------------: | :---------------------------------------------: | :-------------------------------------------------------------------: |
+  |     from LRS      |                        -                        |                           Portal/CLI                            |              Perform a Conversion               | Switch to GRS/RA-GRS first, then perform a conversion to GZRS/RA-GZRS |
+  |  from GRS/RA-GRS  |                   Portal/CLI                    |                                -                                | Switch to LRS, then perform a conversion to ZRS |                         Perform a conversion                          |
+  |     from ZRS      |              Perform a conversion               | Switch to GZRS/RA-GZRS, then perform a conversion to GRS/RA-GRS |                        -                        |                              Portal/CLI                               |
+  | from GZRS/RA-GZRS | Switch to ZRS, then perform a conversion to LRS |                      Perform a conversion                       |                   Portal/CLI                    |                                   -                                   |
 
 ### Configure Object Replication
 
@@ -121,6 +149,23 @@ Below are links to the relevant modules for each listed learning objective. Modu
 - Blobs in Hot and Cool tiers are supported.
 - Configuration: create replication policy specifying source and destination storage accounts.
   - Replication policy contains one or more rules specifying source and destination container and blobs to replicate.
+  - Azure portal: replication policy only needs to be created on the source account. The replication policy is automatically handled on the destination account.
+    - Found under **Data Management > Object Replication > Set Up Replication Rules**
+    - Can configure up to 10 container pairs in portal. Can configure up to 1000 per policy when using JSON.
+    - Can configure filters and scope.
+  - Azure CLI: (assumes versioning enabled and containers exist in source and destination accounts).
+    - Create policy on destination account with `az storage account or-policy create` and provide source and destination accounts/containers, and rules
+    - Add rules to policy with `az storage account or-policy rule add`
+    - Add policy to source account with
+      ```bash
+      az storage account or-policy show \
+        --resource-group <resource-group> \
+        --account-name <dest-storage-account> \
+        --policy-id <policy-id> |
+      az storage account or-policy create --resource-group <resource-group> \
+        --account-name <source-storage-account> \
+        --policy "@-"
+      ```
 - Common use cases:
   - Reduce latency on read requests by replicating data to a storage account closer to users' physical locations.
   - Improve efficiency of compute workloads by allowing them to process the same sets of data in different regions.
@@ -156,7 +201,7 @@ Below are links to the relevant modules for each listed learning objective. Modu
        - Ideal for incremental copy scenarios.
      - Every AzCopy instance creates a job order with related log files to make reviewing, restarting, resuming easy. Automatically retries a transfer upon failure.
      - With Blob storage, can transfer an entire storage account to another using a `PUT`. No need to transfer to the client in this process.
-     - Support for DataLake Gen2 APIs
+     - Support for DataLake Gen2 APIs.
      - Built into Azure Storage Explorer (Storage Explorer uses AzCopy for all transfer operations) and supported on Windows, Linux, and MacOS.
      - Basic CLI syntax: `azcopy <job> [args]`
      - Authentication options:
@@ -174,7 +219,7 @@ Below are links to the relevant modules for each listed learning objective. Modu
        1. Create the storage account in Azure.
        2. Prep disks and machine(s) housing data for the data copy.
        3. Install the `WAImportExport` tool on the disks.
-       4. Run the tool (encrypts disks, generates journal files, copies data)
+       4. Run the tool (encrypts disks, generates journal files, copies data).
        5. Create the Azure Import job.
        6. Ship the disks (update job to include tracking number for shipment).
        7. When staff receive disks at the datacenter, they will copy the data over and ship the disks back.
