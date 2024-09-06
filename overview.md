@@ -26,7 +26,7 @@
 
 # Implement and manage storage (15–20%)
 
-## Configure access to storage
+## [Configure access to storage](./storage/configure-storage-access.md)
 
 - Configure Azure storage firewalls and virtual networks
 - Create and use shared access signature (SAS) tokens
@@ -34,22 +34,22 @@
 - Manage access keys
 - Configure identity-based access for Azure Files
 
-## Configure and manage storage accounts
+## [Configure and manage storage accounts](./storage/configure-manage-storage-accounts.md)
 
 - Create and configure storage accounts
-- Configure Azure Storage redundancy
+- <span style="color:red">Configure Azure Storage redundancy</span>
 - Configure object replication
 - Configure storage account encryption
 - Manage data by using Azure Storage Explorer and AzCopy
 
-## Configure Azure Files and Azure Blob Storage
+## [Configure Azure Files and Azure Blob Storage](./storage/configure-files-blobs.md)
 
 - Create and configure a file share in Azure Storage
 - Create and configure a container in Blob Storage
 - Configure storage tiers
 - Configure snapshots and soft delete for Azure Files
 - Configure blob lifecycle management
-- Configure blob versioning
+- <span style="color:red">Configure blob versioning</span>
 
 # Deploy and manage Azure compute resources (20–25%)
 
